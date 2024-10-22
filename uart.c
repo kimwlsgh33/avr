@@ -69,28 +69,30 @@ int init_uart(uint32_t baud)
    * USART Control and Status Register A
    *
    * @features
-   *  - U2X: USART Double Transmission Speed
+   *  - UCSRA[1] = U2X, USART Double Transmission Speed : 1
    * */
-  REG_UCSRA = 0x02; // (0b00000010: U2X is HIGH)
+  REG_UCSRA = 0x02; // (0b00000010)
 
   /*
    * USART Control and Status Register B
    *
    * @features
-   *  - RXCIE: Receive Complete Interrupt Enable
-   *  - TXCIE: Transmit Complete Interrupt Enable
-   *  - UDREIE: USART Data Register Empty Interrupt Enable
-   *  - RXEN: Receiver Enable
-   *  - TXEN: Transmitter Enable
+   *  - UCSRB[7] = RXCIE, Receive Complete Interrupt Enable : 1
+   *  - UCSRB[6] = TXCIE, Transmit Complete Interrupt Enable : 1
+   *  - UCSRB[5] = UDREIE, USART Data Register Empty Interrupt Enable : 0
+   *  - UCSRB[4] = RXEN, Receiver Enable : 1
+   *  - UCSRB[3] = TXEN, Transmitter Enable : 1
+   *  - UCSRB[2] = UCSZ[2], USART Character Size : 0
    * */
-  REG_UCSRB = 0xD8; // (0b11011000: RXEN, TXEN, TXCIE, UDRIE are HIGH)
+  REG_UCSRB = 0xD8; // (0b11011000)
 
   /*
    * USART Control and Status Register C
    *
    * @features
-   *  - UCSZ0: USART Character Size 0
-   *  - UCSZ1: USART Character Size 1
+   *  - UCSRC[7:6] = UMSEL[1:0], USART Mode SELect : 00 = Async USART
+   *  - UCSRC[3] = USBS, USART Stop Bit Select : 0 = 1bit
+   *  - UCSRC[2:1] = UCSZ[1:0], USART Character Size : 11 -> 011 = 8bit
    * */
   REG_UCSRC = 0x6; // (0b00000110: 8bit characters)
 
@@ -109,6 +111,7 @@ int init_uart(uint32_t baud)
   return 0;
 }
 
+// RXCI0
 ISR(UART_RX_VECT)
 {
   // v10. read and save at buffer.

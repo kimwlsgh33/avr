@@ -12,7 +12,10 @@
 #ifndef __TIMER_H__
 #define __TIMER_H__
 
+#include <stdint.h>
 #define timer_isfired(x) ((timer_get(x) == 0))
 
 void init_timer();
+int alloc_timer();
+int timer_set(int, uint32_t);
 #endif

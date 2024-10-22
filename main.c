@@ -9,6 +9,7 @@
 #include "uart.h"
 #include "uart1.h"
 #include <avr/io.h>
+#include <stdio.h>
 #include <string.h>
 #include <util/delay.h>
 /* #include <xc.h> */
@@ -19,6 +20,7 @@
 #define TEST_OPTO 0
 #define TEST_RELAY 0
 #define TEST_UART 1
+#define TEST_CONSOLE 1
 #define TEST_TIMER 1
 
 void init_gpio();
@@ -34,8 +36,8 @@ void uart_transmit(unsigned char data, unsigned char port);
 void uart_trans_string(const char *str, unsigned char port);
 unsigned char uart_receive(unsigned char port);
 
-char buf[64];
-long received;
+static int tid_op;
+static int tid_st; // automatic state send interval, when st_send_mode == 1
 
 /*
  * DCPS: Data Copies Per Second
@@ -60,17 +62,28 @@ int main(void)
   init_opto();
 #endif
 
+  // Relay
+#if TEST_RELAY
+  init_relay();
+#endif
+
+#if TEST_CONSOLE
+  init_cons(BAUD_115200);
+#endif
+
+#if TEST_TIMER
+  init_timer();
+#endif
+
+#if TEST_CONSOLE
+  init_dcps();
+#endif
+
   // RS232 UART
   // 103: 16MHz, 9600bps, U2Xn = 0
   // 16: 16MHz, 115200bps, U2Xn = 0
 #if TEST_UART
-  init_uart(F_CPU / 8 / BAUD_RATE - 1, 0);
-  init_uart(F_CPU / 8 / BAUD_RATE - 1, 1);
-#endif
-
-  // Relay
-#if TEST_RELAY
-  init_relay();
+  /* init_dcps(); */
 #endif
 
   //==================================================
@@ -86,12 +99,16 @@ int main(void)
 #if TEST_RELAY
     toggle_relays();
 #endif
-#if TEST_UART
-    init_dcps();
-    init_cons(BAUD_115200);
-#endif
 #if TEST_TIMER
-    init_timer();
+    asm("sei");
+    tid_op = alloc_timer();
+    timer_set(tid_op, 0);
+    tid_st = alloc_timer();
+#endif
+#if TEST_CONSOLE
+    printf("CONSOLE WORKS v1.0 \n");
+#endif
+#if TEST_UART
 #endif
     _delay_ms(1000);
   }
@@ -148,7 +165,7 @@ void toggle_relays()
 int dcps_get_packet(char *out_buff)
 {
   char c;
-  /* if (DCP_GETCHAR((unsigned char *)&c) == 1) { */
+  /* (DCP_GETCHAR((unsigned char *)&c) == 1) */
   // HACK: Why not use the same type?
   if (DCP_GETCHAR((unsigned char *)&c)) {
     // packet end

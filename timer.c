@@ -44,17 +44,17 @@ void init_timer()
    * Waveform Generation Mode - WGMn[3:0]
    * ( counting sequence setting )
    *
-   * 0 1 0 0 : Clear Timer on Compare match (CTC) mode
+   * 0100 : Clear Timer on Compare match (CTC) mode
    * */
 
   /*
    * Timer/Counter Control Register 1 A
    *
    * @features
-   *  - TCCR1A[1:0] = WGM1[1:0] : 0 0
-   *  - TCCR1A[3:2] = COM1C[1:0] : Compare Output Mode for Channel C = 0 0
-   *  - TCCR1A[5:4] = COM1B[1:0] : Compare Output Mode for Channel B = 0 0
-   *  - TCCR1A[7:6] = COM1A[1:0] : Compare Output Mode for Channel A = 0 0
+   *  - TCCR1A[1:0] = WGM1[1:0] : 00
+   *  - TCCR1A[3:2] = COM1C[1:0], Compare Output Mode for Channel C : 0 0
+   *  - TCCR1A[5:4] = COM1B[1:0], Compare Output Mode for Channel B : 0 0
+   *  - TCCR1A[7:6] = COM1A[1:0], Compare Output Mode for Channel A : 0 0
    * */
   TCCR1A = 0x00;
 
@@ -64,8 +64,8 @@ void init_timer()
    * 0x0C = 0b00001100 = TCCR1B[3:2]
    *
    * @features
-   *  - TCCR1B[2:0] = CS1[2:0] : Clock Select 1 = 1 0 0 = clk/256 (prescaler)
-   *  - TCCR1B[4:3] = WGM1[3:2] : 0 1
+   *  - TCCR1B[2:0] = CS1[2:0], Clock Select 1 : 100 : clk/256 (prescaler)
+   *  - TCCR1B[4:3] = WGM1[3:2] : 01
    *
    * clk/256 = 16MHz / 256 = 62.5kHz = 62.5k per second
    * clock resolution = 1/62.5k = 0.000016s = 0.016ms = 16us
@@ -95,6 +95,34 @@ void init_timer()
 #else
   TIMSK |= 0x10;
 #endif
+}
+
+int alloc_timer()
+{
+  int id;
+  for (id = 0; id < MAX_SYS_TIMER; ++id) {
+    if ((timer_list[id].flag & 0x80) == 0) {
+      timer_list[id].flag |= 0x80;
+      return id;
+    }
+  }
+
+  return -1;
+}
+
+int timer_set(int id, uint32_t value)
+{
+  if ((id < 0) || (id >= MAX_SYS_TIMER)) {
+    return -1;
+  }
+
+  if (timer_list[id].flag & 0x80) {
+    timer_list[id].value = value;
+    timer_list[id].flag = 0x81;
+    return 0;
+  }
+
+  return -1;
 }
 
 // Timer/Counter Compare Match A
