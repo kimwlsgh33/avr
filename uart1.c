@@ -87,6 +87,7 @@ int init_uart1(uint32_t baud)
   return 0;
 }
 
+// @return: 1 for success, -1 for fail
 int getchar_uart1(uint8_t *c)
 {
   DISABLE_RXCI1();

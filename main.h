@@ -50,7 +50,7 @@ static int load_config(Config *pCfg);
 static int cfg_is_valid(const Config *pCfg);
 static void init_config(Config *pCfg);
 static int save_config(const Config *pCfg);
-static void send_to_mc(char *data);
+static void send_to_mc(const char *data);
 
 // dcps
 int get_dcps_packet(char *outBuff);

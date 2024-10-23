@@ -177,7 +177,7 @@ void toggle_relays()
   PORTC ^= (1 << PINC4 | 1 << PINC5 | 1 << PINC6 | 1 << PINC7);
 }
 
-int send_to_dcps(char *packet, int len)
+int send_dcps(const char *packet, int len)
 {
   int i;
 
@@ -236,7 +236,7 @@ static int load_config(Config *pCfg)
   return 0;
 }
 
-static int cfg_is_valid(const Config *pCfg)
+static int is_cfg_valid(const Config *pCfg)
 {
   if ((pCfg->sv_mode < 0) || (pCfg->sv_mode > 1))
     return 0;
@@ -275,10 +275,10 @@ static int save_config(const Config *pCfg)
   return 1;
 }
 
-static void send_to_mc(char *data)
+static void send_to_mc(const char *data)
 {
   int len = strlen(data);
-  send_to_dcps(data, len);
+  send_dcps(data, len);
 }
 
 /*
