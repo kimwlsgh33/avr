@@ -4,48 +4,35 @@
  * Created: 10/2/2024 4:20:55 PM
  *  Author: FHT
  */
-#include "Console.h"
-#include "timer.h"
-#include "uart.h"
-#include "uart1.h"
-#include <avr/io.h>
-#include <stdio.h>
+#include "main.h"
 #include <string.h>
-#include <util/delay.h>
-/* #include <xc.h> */
-
-#define BAUD_RATE 115200L
 
 #define TEST_GPIO 0
 #define TEST_OPTO 0
 #define TEST_RELAY 0
-#define TEST_UART 1
+#define TEST_TIMER 0
 #define TEST_CONSOLE 1
-#define TEST_TIMER 1
+#define TEST_CONFIG 0
+#define TEST_UART 0
+#define TEST_MA 0
 
-void init_gpio();
-void init_opto();
-void init_relay();
-int init_dcps();
-
-void toggle_gpios();
-void toggle_optos();
-void toggle_relays();
-
-void uart_transmit(unsigned char data, unsigned char port);
-void uart_trans_string(const char *str, unsigned char port);
-unsigned char uart_receive(unsigned char port);
-
+static Config config;
 static int tid_op;
 static int tid_st; // automatic state send interval, when st_send_mode == 1
+
+static int sv_tx_mode = 0;
+static int st_tx_mode = 0;
+static char tmp_rx_buff[128];
 
 /*
  * DCPS: Data Copies Per Second
  * */
 #define DCP_MAX_PACKET_LEN 128
-static uint8_t rxBuff[DCP_MAX_PACKET_LEN];
-static uint8_t rxLen;
+static uint8_t rx_buff[DCP_MAX_PACKET_LEN];
+static uint8_t rx_len;
 #define DCP_GETCHAR(pc) getchar_uart1(pc)
+static int dcpLen;
+static char dcpCmd[128];
 
 int main(void)
 {
@@ -73,21 +60,29 @@ int main(void)
 
 #if TEST_TIMER
   init_timer();
+  asm("sei");
+  tid_op = alloc_timer();
+  set_timer(tid_op, 0);
+  tid_st = alloc_timer();
 #endif
 
-#if TEST_CONSOLE
-  init_dcps();
+#if TEST_CONFIG
+  load_config(&config);
+  if (!cfg_is_valid(&config)) {
+    init_config(&config);
+    save_config(&config);
+    printf("Config default !!\n");
+  }
 #endif
 
   // RS232 UART
-  // 103: 16MHz, 9600bps, U2Xn = 0
-  // 16: 16MHz, 115200bps, U2Xn = 0
+  // 16: 16MHz, 115200bps, U2Xn = 1
 #if TEST_UART
-  /* init_dcps(); */
+  init_dcps();
 #endif
 
   //==================================================
-  // function
+  // loop
   //==================================================
   while (1) {
 #if TEST_GPIO
@@ -99,16 +94,35 @@ int main(void)
 #if TEST_RELAY
     toggle_relays();
 #endif
-#if TEST_TIMER
-    asm("sei");
-    tid_op = alloc_timer();
-    timer_set(tid_op, 0);
-    tid_st = alloc_timer();
-#endif
 #if TEST_CONSOLE
     printf("CONSOLE WORKS v1.0 \n");
 #endif
+#if TEST_TIMER
+    if (timer_isfired(tid_op)) {
+      set_timer(tid_op, 500);
+      _TOGGLE_LED();
+
+      if (sv_tx_mode == 1) {
+        if (is_xx_sensor_updated()) {
+          // automatic clear is updated.
+          int sv = get_xx_sensor_value();
+
+          sprintf(tmp_rx_buff, "SS=%d", sv);
+          send_to_mc(tmp_rx_buff);
+        }
+      }
+    }
+#endif
+#if TEST_MA
+    run_ma();
+#endif
 #if TEST_UART
+    if ((dcpLen = get_dcps_packet(dcpCmd)) > 0) {
+      process_mc_cmd(dcpCmd, dcpLen);
+    }
+
+    if ((dcpLen = get_cons_cmdline(dcpCmd)) > 0) {
+    }
 #endif
     _delay_ms(1000);
   }
@@ -137,6 +151,7 @@ void init_relay()
   DDRC |= (1 << PINC4 | 1 << PINC5 | 1 << PINC6 | 1 << PINC7);
 }
 
+// Data Copies Per Second
 int init_dcps()
 {
   init_uart1(BAUD_115200);
@@ -162,25 +177,42 @@ void toggle_relays()
   PORTC ^= (1 << PINC4 | 1 << PINC5 | 1 << PINC6 | 1 << PINC7);
 }
 
-int dcps_get_packet(char *out_buff)
+int send_to_dcps(char *packet, int len)
 {
-  char c;
+  int i;
+
+  for (i = 0; i < len; ++i) {
+    PUTCHAR_DCP(packet[i]);
+  }
+
+  PUTCHAR_DCP('\r'); // CR
+  PUTCHAR_DCP('\n'); // LF
+
+  return 0;
+}
+
+/*
+ * @return: length of packet
+ * */
+int get_dcps_packet(char *outBuff)
+{
+  uint8_t c;
   /* (DCP_GETCHAR((unsigned char *)&c) == 1) */
   // HACK: Why not use the same type?
-  if (DCP_GETCHAR((unsigned char *)&c)) {
+  if (DCP_GETCHAR(&c)) {
     // packet end
     if (c == '\r') {
-      int len = rxLen;
+      int len = rx_len;
 
-      rxBuff[rxLen] = 0;
-      memcpy(out_buff, rxBuff, rxLen + 1);
-      rxLen = 0;
+      rx_buff[rx_len] = 0;
+      memcpy(outBuff, rx_buff, rx_len + 1);
+      rx_len = 0;
 
       return len;
     } else {
       // payloads
-      if (rxLen < (DCP_MAX_PACKET_LEN - 1)) {
-        rxBuff[rxLen++] = c;
+      if (rx_len < (DCP_MAX_PACKET_LEN - 1)) {
+        rx_buff[rx_len++] = c;
       }
 
       return -1;
@@ -188,4 +220,80 @@ int dcps_get_packet(char *out_buff)
   }
 
   return -1;
+}
+
+//==================================================
+// static functions
+//==================================================
+
+// load config from eeprom
+static int load_config(Config *pCfg)
+{
+  asm("cli"); // CLear global Interrupt
+  eeprom_read_block(pCfg, (const void *)0, sizeof(Config));
+  asm("sei"); // Set global External Interrupt
+
+  return 0;
+}
+
+static int cfg_is_valid(const Config *pCfg)
+{
+  if ((pCfg->sv_mode < 0) || (pCfg->sv_mode > 1))
+    return 0;
+  if ((pCfg->st_mode < 0) || (pCfg->st_mode > 1))
+    return 0;
+  if ((pCfg->st_interval < 1) || (pCfg->st_interval > 60))
+    return 0;
+  if ((pCfg->mon_height < 1) || (pCfg->mon_height > 700))
+    return 0;
+
+  if (memcmp(pCfg->mark, "RR01", 4) != 0)
+    return 0;
+
+  return 1;
+}
+
+// initiate the config
+static void init_config(Config *pCfg)
+{
+  printf("init default settings\n");
+  pCfg->sv_mode = 0;
+  pCfg->st_mode = 0;
+  pCfg->st_interval = 0;
+  pCfg->mon_height = 500;
+
+  memcpy(pCfg->mark, "RR01", 4);
+}
+
+// store the config
+static int save_config(const Config *pCfg)
+{
+  asm("cli");
+  eeprom_write_block(pCfg, (void *)0, sizeof(Config));
+  asm("sei");
+
+  return 1;
+}
+
+static void send_to_mc(char *data)
+{
+  int len = strlen(data);
+  send_to_dcps(data, len);
+}
+
+/*
+ * @feature Parse the User Command and send it to the MC
+ * */
+static void process_mc_cmd(char *cmdBuff, int cmdLen)
+{
+
+  if ((cmdLen <= 0) || (cmdBuff == 0))
+    return;
+
+  printf("mc cmd: %s\n", cmdBuff);
+
+  // NOTE: Create the commands!
+  if (strcmp(cmdBuff, "ID?") == 0) {
+    send_to_mc("RC v1.0");
+  }
 }

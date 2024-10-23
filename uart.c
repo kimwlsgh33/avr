@@ -130,6 +130,9 @@ ISR(UART_RX_VECT)
   _rx_len++;
 }
 
+/*
+ * @return: 1 for success, 0 for fail
+ * */
 int getchar_uart(uint8_t *c)
 {
   DISABLE_RXCI();

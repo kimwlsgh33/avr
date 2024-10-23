@@ -79,7 +79,7 @@ void init_timer()
    * ( set the value to compare match )
    *
    * TIMER_TCNT = CPUCLK / PRESCALER_FACTOR / TIMER_TICK
-   * ( 1ms = TIMER_CLK / 1000 = 16M / 256 / 1000 )
+   * ( Set the interrupt flag per 1ms = TIMER_CLK / 1000 = 16M / 256 / 1000 )
    * */
   OCR1AH = 0;
   OCR1AL = TIMER_TCNT;
@@ -110,7 +110,7 @@ int alloc_timer()
   return -1;
 }
 
-int timer_set(int id, uint32_t value)
+int set_timer(int id, uint32_t value)
 {
   if ((id < 0) || (id >= MAX_SYS_TIMER)) {
     return -1;
@@ -120,6 +120,20 @@ int timer_set(int id, uint32_t value)
     timer_list[id].value = value;
     timer_list[id].flag = 0x81;
     return 0;
+  }
+
+  return -1;
+}
+
+int get_timer(uint32_t id)
+{
+  if ((id < 0) || (id > MAX_SYS_TIMER))
+    return -1;
+
+  // Check if timer is up and running.
+  if (timer_list[id].flag == 0x81) {
+    if (timer_list[id].value == 0)
+      return 0;
   }
 
   return -1;

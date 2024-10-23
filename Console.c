@@ -1,6 +1,8 @@
 #include "Console.h"
 #include "uart.h"
+#include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #if 0
 #define STD_INIT_UART init_uart1
@@ -41,10 +43,25 @@ static int std_getchar(FILE *stream)
   return c;
 }
 
+// Use uart0 as stdio
 void init_cons(uint32_t baud)
 {
   STD_INIT_UART(baud);
-  // Use USART as standard io
   fdevopen(std_putchar, std_getchar);
+}
+
+int get_cmdline_cons(char *pOutBuff)
+{
+  uint8_t c;
+
+  if (STD_GETCHAR(&c)) {
+    if (c == '\r') {
+      int len = rxLen;
+
+      strcpy(pOutBuff, rxBUff);
+    } else {
+    }
+  }
+  return 0;
 }
 #endif

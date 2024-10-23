@@ -16,9 +16,9 @@ void disable_cons();
 /*
  * Copyout command
  *
- * @return bufferedcommand length
+ * @return: bufferedcommand length
  *   -1: not yet.
  */
-int get_cmd_ln_cons(char *poutBuff);
+int get_cmdline_cons(char *pOutBuff);
 
 #endif

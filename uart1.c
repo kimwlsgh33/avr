@@ -47,9 +47,7 @@ static uint8_t _tx_len = 0;
 #define ENABLE_UDREI1() _SET(UCSR1B, UDRIE1)
 #define DISABLE_UDREI1() _CLR(UCSR1B, UDRIE1)
 
-/*
- * Impleementation
- * */
+/* Set baud rate and character size for USART1 */
 int init_uart1(uint32_t baud)
 {
 
@@ -57,7 +55,11 @@ int init_uart1(uint32_t baud)
    * USART Control and Status Register 1 A
    *
    * @features
-   *  - U2X: USART Double Transmission Speed
+   *  - UCSR1A[1] = U2X, USART Double Transmission Speed
+   *  - UCSR1A[7] = RXCIE1, RX Complete Interrupt Enable
+   *  - UCSR1A[6] = TXCIE1, TX Complete Interrupt Enable
+   *  - UCSR1A[4] = RXEN1, RX Enable
+   *  - UCSR1A[3] = TXEN1, TX Enable
    * */
   UCSR1A = (1 << U2X1);
   UCSR1B = (1 << RXCIE1 | 1 << TXCIE1 | 1 << RXEN1 | 1 << TXEN1);
@@ -65,8 +67,7 @@ int init_uart1(uint32_t baud)
    * USART Control and Status Register 1 C
    *
    * @features
-   *  - UCSZ10: USART Character Size 0
-   *  - UCSZ11: USART Character Size 1
+   *  - UCSZ1[1:0]: USART 1 Character Size
    * */
   UCSR1C = (1 << UCSZ11 | 1 << UCSZ10);
 
@@ -95,7 +96,7 @@ int getchar_uart1(uint8_t *c)
     *c = _rx_buff[_rx_head];
     // point to next
     _rx_head = (_rx_head + 1) % UART_BUFF_SIZE;
-    _rx_len--;
+    --_rx_len;
 
     // enable_intr
     ENABLE_RXCI1();
@@ -110,6 +111,20 @@ int getchar_uart1(uint8_t *c)
   return -1;
 }
 
-int putchar_uart1(uint8_t c);
+int putchar_uart1(uint8_t c)
+{
+  DISABLE_TXCI1();
+  DISABLE_UDREI1();
+
+  if (_tx_len < UART_BUFF_SIZE) {
+    _tx_buff[_tx_tail] = c;
+    _tx_tail = (_tx_tail + 1) % UART_BUFF_SIZE;
+    ++_tx_tail;
+  }
+
+  ENABLE_UDREI1();
+
+  return 0;
+}
 
 // Using F_CPU Clock
