@@ -9,6 +9,7 @@
 #define STD_GET_CHAR getchar_uart1
 #define STD_PUT_CHAR putchar_uart1
 #else
+// NOTE: You don't need to know about what the standard output really is.
 #define STD_INIT_UART init_uart
 #define STD_GETCHAR getchar_uart
 #define STD_PUTCHAR putchar_uart
@@ -23,9 +24,9 @@ static int rxLen = 0;
 
 static int std_putchar(char c, FILE *stream)
 {
+  // NOTE: repeat until '\r' if '\n' is found
   if (c == '\n') {
-    while (!STD_PUTCHAR('\r'))
-      ;
+    STD_PUTCHAR('\r');
   }
 
   while (!STD_PUTCHAR(c))
@@ -44,10 +45,14 @@ static int std_getchar(FILE *stream)
 }
 
 // Use uart0 as stdio
+static FILE uart_stream =
+    FDEV_SETUP_STREAM(std_putchar, std_getchar, _FDEV_SETUP_RW);
 void init_cons(uint32_t baud)
 {
   STD_INIT_UART(baud);
-  fdevopen(std_putchar, std_getchar);
+  /* fdevopen(std_putchar, std_getchar); */
+  stdout = &uart_stream;
+  stdin = &uart_stream;
 }
 
 int get_cmdline_cons(char *pOutBuff)

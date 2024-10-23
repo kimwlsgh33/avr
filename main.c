@@ -7,7 +7,7 @@
 #include "main.h"
 #include <string.h>
 
-#define TEST_GPIO 0
+#define TEST_GPIO 1
 #define TEST_OPTO 0
 #define TEST_RELAY 0
 #define TEST_TIMER 0

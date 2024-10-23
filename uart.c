@@ -1,11 +1,13 @@
 /*
- * buffer initialization for default uart
+ * buffer initialization for default uart (USB to Serial)
  * */
 // HACK: Why we should set to 128?
 #include "uart.h"
 #include "putil.h"
 #include <avr/io.h>
 #include <stdint.h>
+/* #define BAUD 115200 */
+/* #include <util/setbaud.h> */
 
 #define UART_BUFF_SIZE 128
 static uint8_t _rx_buff[UART_BUFF_SIZE];
@@ -106,8 +108,12 @@ int init_uart(uint32_t baud)
    * @formula
    *   - Async U2X Mode Baud Value: (F_CPU / 8 / baud) - 1
    * */
-  REG_UBRRH = ((F_CPU / 8 / baud) - 1) >> 8;
-  REG_UBRRL = ((F_CPU / 8 / baud) - 1);
+  uint16_t ubrr = (F_CPU / 8 / baud) - 1;
+  REG_UBRRH = (ubrr >> 8);
+  REG_UBRRL = ubrr;
+  /* REG_UBRRH = UBRRH_VALUE; */
+  /* REG_UBRRL = UBRRL_VALUE; */
+
   return 0;
 }
 
