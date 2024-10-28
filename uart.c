@@ -10,13 +10,13 @@
 /* #define BAUD 115200 */
 /* #include <util/setbaud.h> */
 
-#define UART_BUFF_SIZE 128
-static uint8_t _rx_buff[UART_BUFF_SIZE];
+#define USART_BUFF_SIZE 128
+static uint8_t _rx_buff[USART_BUFF_SIZE];
 static uint8_t _rx_head = 0;
 static uint8_t _rx_tail = 0;
 static uint8_t _rx_len = 0;
 
-static uint8_t _tx_buff[UART_BUFF_SIZE];
+static uint8_t _tx_buff[USART_BUFF_SIZE];
 static uint8_t _tx_head = 0;
 static uint8_t _tx_tail = 0;
 static uint8_t _tx_len = 0;
@@ -29,9 +29,9 @@ static uint8_t _tx_len = 0;
 #define REG_UBRRL UBRR0L
 #define REG_UDR UDR0
 #define BIT_RXC RXC0
-#define UART_RX_VECT USART0_RX_vect
-#define UART_TX_VECT USART0_TX_vect
-#define UART_UDRE_VECT USART0_UDRE_vect
+#define USART_RX_VECT USART0_RX_vect
+#define USART_TX_VECT USART0_TX_vect
+#define USART_UDRE_VECT USART0_UDRE_vect
 
 // for uart0
 #define DISABLE_RXCI() cbi(UCSR0B, RXCIE0)
@@ -120,7 +120,7 @@ int init_uart(uint32_t baud)
 }
 
 // RXCI0
-ISR(UART_RX_VECT)
+ISR(USART_RX_VECT)
 {
   // v10. read and save at buffer.
   char status, data;
@@ -134,8 +134,38 @@ ISR(UART_RX_VECT)
   // save at the buffer. check a overflow
   // indices of the _rx_buff: [0, 127]
   _rx_buff[_rx_tail] = data;
-  _rx_tail = (_rx_tail + 1) % UART_BUFF_SIZE;
+  _rx_tail = (_rx_tail + 1) % USART_BUFF_SIZE;
   _rx_len++;
+}
+
+ISR(USART_UDRE_VECT)
+{
+  uint8_t c;
+
+  if (_tx_len > 0) {
+    c = _tx_buff[_tx_head];
+    REG_UDR = c;
+
+    // _tx_head: [0, USART_BUFF_SIZE)
+    _tx_head = (_tx_head + 1) % USART_BUFF_SIZE;
+    --_tx_len;
+    /* ENABLE_TXCI(); */
+  }
+
+  DISABLE_UDREI();
+}
+
+ISR(USART_TX_VECT)
+{
+  uint8_t c;
+
+  if (_tx_len > 0) {
+    c = _tx_buff[_tx_head];
+    REG_UDR = c;
+
+    _tx_head = (_tx_head + 1) % USART_BUFF_SIZE;
+    --_tx_len;
+  }
 }
 
 /*
@@ -147,7 +177,7 @@ int getchar_uart(uint8_t *c)
 
   if (_rx_len > 0) {
     *c = _rx_buff[_rx_head];
-    _rx_head = (_rx_head + 1) % UART_BUFF_SIZE;
+    _rx_head = (_rx_head + 1) % USART_BUFF_SIZE;
     _rx_len--;
 
     ENABLE_RXCI();
@@ -164,11 +194,12 @@ int putchar_uart(uint8_t c)
 {
   DISABLE_TXCI();  // turn off TX complete interrupt
   DISABLE_UDREI(); // turn off data register empty interrupt
-  if (_tx_len < UART_BUFF_SIZE) {
+  if (_tx_len < USART_BUFF_SIZE) {
     _tx_buff[_tx_tail] = c;
-    _tx_tail = (_tx_tail + 1) % UART_BUFF_SIZE;
+    _tx_tail = (_tx_tail + 1) % USART_BUFF_SIZE;
     _tx_len++;
 
+    // turn on data register empty interrupt *manually*
     ENABLE_UDREI();
 
     return 1;
