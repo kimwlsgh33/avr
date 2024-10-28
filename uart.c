@@ -5,6 +5,7 @@
 #include "uart.h"
 #include "putil.h"
 #include <avr/io.h>
+#include <avr/sfr_defs.h>
 #include <stdint.h>
 /* #define BAUD 115200 */
 /* #include <util/setbaud.h> */
@@ -33,14 +34,14 @@ static uint8_t _tx_len = 0;
 #define UART_UDRE_VECT USART0_UDRE_vect
 
 // for uart0
-#define DISABLE_RXCI() _CLR(UCSR0B, RXCIE0)
-#define ENABLE_RXCI() _SET(UCSR0B, RXCIE0)
+#define DISABLE_RXCI() cbi(UCSR0B, RXCIE0)
+#define ENABLE_RXCI() sbi(UCSR0B, RXCIE0)
 
-#define DISABLE_TXCI() _CLR(UCSR0B, TXCIE0)
-#define ENABLE_TXCI() _SET(UCSR0B, TXCIE0)
+#define DISABLE_TXCI() cbi(UCSR0B, TXCIE0)
+#define ENABLE_TXCI() sbi(UCSR0B, TXCIE0)
 
-#define DISABLE_UDREI() _CLR(UCSR0B, UDRIE0)
-#define ENABLE_UDREI() _SET(UCSR0B, UDRIE0)
+#define DISABLE_UDREI() cbi(UCSR0B, UDRIE0)
+#define ENABLE_UDREI() sbi(UCSR0B, UDRIE0)
 
 #elif defined(UCSRA)
 
@@ -73,7 +74,7 @@ int init_uart(uint32_t baud)
    * @features
    *  - UCSRA[1] = U2X, USART Double Transmission Speed : 1
    * */
-  REG_UCSRA = 0x02; // (0b00000010)
+  REG_UCSRA = _BV(U2X0); // (0b00000010)
 
   /*
    * USART Control and Status Register B
@@ -86,7 +87,8 @@ int init_uart(uint32_t baud)
    *  - UCSRB[3] = TXEN, Transmitter Enable : 1
    *  - UCSRB[2] = UCSZ[2], USART Character Size : 0
    * */
-  REG_UCSRB = 0xD8; // (0b11011000)
+  REG_UCSRB =
+      _BV(RXCIE0) | _BV(TXCIE0) | _BV(RXEN0) | _BV(TXEN0); // (0b11011000)
 
   /*
    * USART Control and Status Register C
@@ -96,7 +98,7 @@ int init_uart(uint32_t baud)
    *  - UCSRC[3] = USBS, USART Stop Bit Select : 0 = 1bit
    *  - UCSRC[2:1] = UCSZ[1:0], USART Character Size : 11 -> 011 = 8bit
    * */
-  REG_UCSRC = 0x6; // (0b00000110: 8bit characters)
+  REG_UCSRC = _BV(UCSZ01) | _BV(UCSZ00); // (0b00000110: 8bit characters)
 
   /*
    * USART Baud Rate Register
@@ -124,7 +126,7 @@ ISR(UART_RX_VECT)
   char status, data;
 
   // wait status ready.
-  while (((status = REG_UCSRA) & (1 << BIT_RXC)) == 0)
+  while (((status = REG_UCSRA) & _BV(BIT_RXC)) == 0)
     ;
 
   data = REG_UDR;

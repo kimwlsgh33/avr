@@ -112,9 +112,8 @@ int alloc_timer()
 
 int set_timer(int id, uint32_t value)
 {
-  if ((id < 0) || (id >= MAX_SYS_TIMER)) {
+  if ((id < 0) || (id >= MAX_SYS_TIMER))
     return -1;
-  }
 
   if (timer_list[id].flag & 0x80) {
     timer_list[id].value = value;
@@ -125,15 +124,18 @@ int set_timer(int id, uint32_t value)
   return -1;
 }
 
-int get_timer(uint32_t id)
+int get_timer(int id)
 {
   if ((id < 0) || (id > MAX_SYS_TIMER))
     return -1;
 
   // Check if timer is up and running.
   if (timer_list[id].flag == 0x81) {
-    if (timer_list[id].value == 0)
+    if (timer_list[id].value) {
+      return 1;
+    } else {
       return 0;
+    }
   }
 
   return -1;

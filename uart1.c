@@ -38,14 +38,14 @@ static uint8_t _tx_len = 0;
  *  - RXEN: Receiver Enable
  *  - TXEN: Transmitter Enable
  * */
-#define ENABLE_RXCI1() _SET(UCSR1B, RXCIE1)
-#define DISABLE_RXCI1() _CLR(UCSR1B, RXCIE1)
+#define ENABLE_RXCI1() sbi(UCSR1B, RXCIE1)
+#define DISABLE_RXCI1() cbi(UCSR1B, RXCIE1)
 
-#define ENABLE_TXCI1() _SET(UCSR1B, TXCIE1)
-#define DISABLE_TXCI1() _CLR(UCSR1B, TXCIE1)
+#define ENABLE_TXCI1() sbi(UCSR1B, TXCIE1)
+#define DISABLE_TXCI1() cbi(UCSR1B, TXCIE1)
 
-#define ENABLE_UDREI1() _SET(UCSR1B, UDRIE1)
-#define DISABLE_UDREI1() _CLR(UCSR1B, UDRIE1)
+#define ENABLE_UDREI1() sbi(UCSR1B, UDRIE1)
+#define DISABLE_UDREI1() cbi(UCSR1B, UDRIE1)
 
 /* Set baud rate and character size for USART1 */
 int init_uart1(uint32_t baud)

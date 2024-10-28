@@ -24,7 +24,7 @@
 #define BAUD_RATE 115200L
 
 // on-board debugging led
-#define _TOGGLE_LED() _XOR(PORTB, 7);
+#define _TOGGLE_LED() tbi(PORTB, 7);
 #define PUTCHAR_DCP(c) putchar_uart1(c)
 
 // structs
@@ -40,7 +40,6 @@ typedef struct _cfg {
 void init_gpio();
 void init_opto();
 void init_relay();
-int init_dcps();
 
 void toggle_gpios();
 void toggle_optos();
@@ -50,9 +49,10 @@ static int load_config(Config *pCfg);
 static int cfg_is_valid(const Config *pCfg);
 static void init_config(Config *pCfg);
 static int save_config(const Config *pCfg);
-static void send_to_mc(const char *data);
 
-// dcps
+// dcps - kiosk
+int init_dcps();
 int get_dcps_packet(char *outBuff);
+static void send_to_mc(const char *data);
 static void process_mc_cmd(char *cmdBuff, int cmdLen);
 #endif

@@ -5,16 +5,16 @@
  *  Author: FHT
  */
 #include "main.h"
-#include <string.h>
 
 #define TEST_GPIO 1
 #define TEST_OPTO 0
 #define TEST_RELAY 0
-#define TEST_TIMER 0
+#define TEST_TIMER 1
 #define TEST_CONSOLE 1
 #define TEST_CONFIG 0
 #define TEST_UART 0
-#define TEST_MA 0
+#define TEST_MA 1
+#define TEST_RM 1
 
 static Config config;
 static int tid_op;
@@ -81,6 +81,23 @@ int main(void)
   init_dcps();
 #endif
 
+#if TEST_RM
+  /*
+   * init_rm
+   *
+   * - recycler: init_rc -> init_rcp -> init_uart2 -> alloc_timer ->
+   * set_timer(3000)
+   *
+   * - ultra-sonic sensor: init_us -> init_uart3  -> alloc_timer ->
+   * set_timer(1000)
+   *
+   * - moniter-actuator: init_ma -> init_sm1 -> alloc_timer
+   * - garbage door: init_gd -> init_sm2 -> alloc_timer
+   *
+   * alloc_timer -> set_timer(1000)
+   * */
+#endif
+
   //==================================================
   // loop
   //==================================================
@@ -98,7 +115,7 @@ int main(void)
     printf("CONSOLE WORKS v1.0 \n");
 #endif
 #if TEST_TIMER
-    if (timer_isfired(tid_op)) {
+    if (timer_is_fired(tid_op)) {
       set_timer(tid_op, 500);
       _TOGGLE_LED();
 
@@ -112,6 +129,8 @@ int main(void)
         }
       }
     }
+#endif
+#if TEST_RM
 #endif
 #if TEST_MA
     run_ma();
@@ -236,7 +255,7 @@ static int load_config(Config *pCfg)
   return 0;
 }
 
-static int is_cfg_valid(const Config *pCfg)
+static int cfg_is_valid(const Config *pCfg)
 {
   if ((pCfg->sv_mode < 0) || (pCfg->sv_mode > 1))
     return 0;
